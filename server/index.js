@@ -3,5 +3,5 @@ const configuredOrigins = (process.env.CLIENT_ORIGIN || "http://localhost:5173,h
 const allowedOrigins = new Set(configuredOrigins);
 const app = express(); app.use(cors({ origin: (origin, callback) => !origin || allowedOrigins.has(origin) ? callback(null, true) : callback(new Error("Origin not allowed by CORS")) }));
 app.use(express.json()); app.use(morgan("dev")); app.get("/api/health", (req, res) => res.json({ status: "ok" })); app.use("/api", await routes()); app.use(notFound); app.use(errorHandler);
-if (process.env.NODE_ENV !== "test") { const port = process.env.PORT || 5000; connectDB().then(() => app.listen(port, () => console.log(`API listening on port ${port}`))).catch((error) => { console.error(`Database connection failed: ${error.message}`); process.exitCode = 1; }); }
+if (process.env.NODE_ENV !== "test" && !process.env.NETLIFY) { const port = process.env.PORT || 5000; connectDB().then(() => app.listen(port, () => console.log(`API listening on port ${port}`))).catch((error) => { console.error(`Database connection failed: ${error.message}`); process.exitCode = 1; }); }
 export default app;
