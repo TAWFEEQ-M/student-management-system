@@ -9,7 +9,21 @@ await prisma.user.upsert({
   create: { name: "Administrator", email: "admin@example.com", password: await bcrypt.hash("change-me", 12), role: "admin" },
 });
 
-for (const { id: studentId, name, ...data } of initialStudents) {
+for (const student of initialStudents) {
+  const {
+    id: studentId,
+    name,
+    email,
+    phone,
+    dateOfBirth,
+    gender,
+    department,
+    year,
+    section,
+    address,
+    admissionYear,
+  } = student;
+  const data = { email, phone, dateOfBirth, gender, department, year, section, address, admissionYear };
   await prisma.student.upsert({
     where: { studentId },
     update: { studentId, name, fullName: name, status: "active", ...data },
