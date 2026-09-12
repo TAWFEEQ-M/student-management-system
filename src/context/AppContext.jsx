@@ -3,6 +3,9 @@ import { initialAssessmentMarks, initialAttendance, initialMarks, initialStudent
 import { api, normalizeStudent } from "../services/api";
 
 const AppContext = createContext(null);
+const DEMO_TOKEN = "sms-demo-session";
+const DEMO_USER = { id: "demo-admin", name: "Administrator", email: "admin@example.com", role: "admin" };
+const apiUnavailable = (error) => !error.status || error.status === 404 || error.status >= 500;
 const toObject = (value) => value instanceof Map ? Object.fromEntries(value) : (Array.isArray(value) ? Object.fromEntries(value) : (value || {}));
 const assessmentFromRows = (rows, fallback) => rows.reduce((result, row) => {
   const student = result[row.studentId] || {};
@@ -38,6 +41,14 @@ export function AppProvider({ children }) {
       try {
         const token = localStorage.getItem("sms_token");
         if (!token) return;
+        if (token === DEMO_TOKEN) {
+          if (active) {
+            setUser(DEMO_USER);
+            setBackendStatus("offline");
+            setBackendError("API unavailable — using local demo data.");
+          }
+          return;
+        }
         const sessionUser = await api.get("/auth/me");
         if (active) setUser(sessionUser);
         const [studentRows, subjectRows, attendanceRows, markRows] = await Promise.all([
@@ -67,7 +78,17 @@ export function AppProvider({ children }) {
     return () => { active = false; };
   }, []);
   const login = useCallback(async (email, password) => {
-    const session = await api.login(email, password);
+    let session;
+    try {
+      session = await api.login(email, password);
+    } catch (error) {
+      if (!apiUnavailable(error)) throw error;
+      localStorage.setItem("sms_token", DEMO_TOKEN);
+      setUser(DEMO_USER);
+      setBackendStatus("offline");
+      setBackendError("API unavailable — using local demo data.");
+      return DEMO_USER;
+    }
     localStorage.setItem("sms_token", session.token);
     setUser(session.user);
     setBackendError("");

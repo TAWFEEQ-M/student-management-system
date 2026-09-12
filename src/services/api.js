@@ -3,7 +3,11 @@ const request = async (path, options = {}) => {
   const token = localStorage.getItem("sms_token");
   const headers = { "Content-Type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}), ...(options.headers || {}) };
   const response = await fetch(`${API_URL}${path}`, { ...options, headers });
-  if (!response.ok) throw new Error((await response.json().catch(() => ({}))).message || "Request failed");
+  if (!response.ok) {
+    const error = new Error((await response.json().catch(() => ({}))).message || "Request failed");
+    error.status = response.status;
+    throw error;
+  }
   return response.status === 204 ? null : response.json();
 };
 export const api = {
