@@ -13,4 +13,4 @@ export const api = {
   del: (path) => request(path, { method: "DELETE" }),
   login: (email, password) => request("/auth/login", { method: "POST", body: JSON.stringify({ email, password }) }),
 };
-export const normalizeStudent = (student) => ({ ...student, id: student.id || student.studentId });
+export const normalizeStudent = (student) => ({ ...student, id: student.studentId || student.id });
