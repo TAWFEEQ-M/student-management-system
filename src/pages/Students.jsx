@@ -11,16 +11,31 @@ function Students() {
   const visible = useMemo(() => [...students].filter((student) => `${student.name} ${student.id} ${student.email}`.toLowerCase().includes(query.toLowerCase()) && (department === "All" || student.department === department) && (year === "All" || student.year === year) && (section === "All" || student.section === section) && (status === "All" || (status === "At risk" ? student.attendance < 75 : student.attendance >= 75))).sort((a, b) => typeof a[sort] === "number" ? b[sort] - a[sort] : String(a[sort]).localeCompare(String(b[sort]))), [students, query, department, year, section, status, sort]);
   const close = () => { setModal(false); setForm(blank); setEditing(false); setError(""); };
   const open = (student) => { setForm(student ? { ...blank, ...student } : blank); setEditing(Boolean(student)); setModal(true); };
-  const submit = (event) => {
+  const submit = async (event) => {
     event.preventDefault();
     if (!form.id.trim() || !form.name.trim() || !form.email.trim() || !form.phone.trim() || !form.department || !form.year || !form.section) return setError("Please complete all required fields.");
     if (!/^\S+@\S+\.\S+$/.test(form.email)) return setError("Enter a valid email address.");
     if (!/^\+?[0-9\s-]{10,15}$/.test(form.phone)) return setError("Enter a valid phone number.");
     if (!editing && students.some((student) => student.id.toLowerCase() === form.id.trim().toLowerCase())) return setError("Student ID already exists.");
     const nextStudent = editing ? { ...form, attendance: students.find((student) => student.id === form.id)?.attendance || 0 } : { ...form, attendance: 100 };
-    setStudents(editing ? students.map((student) => student.id === form.id ? nextStudent : student) : [...students, nextStudent]); saveStudent(nextStudent, editing); close();
+    try {
+      await saveStudent(nextStudent, editing);
+      setStudents(editing ? students.map((student) => student.id === form.id ? nextStudent : student) : [...students, nextStudent]);
+      close();
+    } catch (requestError) {
+      setError(requestError.message || "Unable to save student.");
+    }
   };
-  const deleteStudent = (student) => { if (window.confirm(`Delete ${student.name}? This action cannot be undone.`)) { setStudents(students.filter((item) => item.id !== student.id)); removeStudent(student); } };
+  const deleteStudent = async (student) => {
+    if (!window.confirm(`Delete ${student.name}? This action cannot be undone.`)) return;
+    setError("");
+    try {
+      await removeStudent(student);
+      setStudents((current) => current.filter((item) => item.id !== student.id));
+    } catch (requestError) {
+      setError(requestError.message || "Unable to delete student.");
+    }
+  };
   return <div className="dashboard">
     <div className="page-header"><div><h1>Students</h1><p>Manage enrolments, profiles and academic groups.</p></div><button className="primary-button" onClick={() => open()}><Plus size={18} /> Add Student</button></div>
     <div className="dashboard-card"><div className="student-toolbar"><div className="search-box student-search"><Search size={18} /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search by name, ID or email..." /></div><select value={department} onChange={(event) => setDepartment(event.target.value)} className="filter-select"><option>All</option><option>CSE</option><option>ECE</option><option>EEE</option><option>MECH</option></select><select value={year} onChange={(event) => setYear(event.target.value)} className="filter-select"><option>All</option>{["1st Year", "2nd Year", "3rd Year", "4th Year"].map((item) => <option key={item}>{item}</option>)}</select><select value={section} onChange={(event) => setSection(event.target.value)} className="filter-select"><option>All</option><option>A</option><option>B</option></select><select value={status} onChange={(event) => setStatus(event.target.value)} className="filter-select"><option>All</option><option>Good</option><option>At risk</option></select><select value={sort} onChange={(event) => setSort(event.target.value)} className="filter-select"><option value="name">Sort: Name</option><option value="attendance">Sort: Attendance</option><option value="department">Sort: Department</option></select></div>

@@ -3,9 +3,6 @@ import { initialAssessmentMarks, initialAttendance, initialMarks, initialStudent
 import { api, normalizeStudent } from "../services/api";
 
 const AppContext = createContext(null);
-const DEMO_TOKEN = "sms-demo-session";
-const DEMO_USER = { id: "demo-admin", name: "Administrator", email: "admin@example.com", role: "admin" };
-const apiUnavailable = (error) => !error.status || error.status === 404 || error.status >= 500;
 const toObject = (value) => value instanceof Map ? Object.fromEntries(value) : (Array.isArray(value) ? Object.fromEntries(value) : (value || {}));
 const assessmentFromRows = (rows, fallback) => rows.reduce((result, row) => {
   const student = result[row.studentId] || {};
@@ -40,13 +37,8 @@ export function AppProvider({ children }) {
     const load = async () => {
       try {
         const token = localStorage.getItem("sms_token");
-        if (!token) return;
-        if (token === DEMO_TOKEN) {
-          if (active) {
-            setUser(DEMO_USER);
-            setBackendStatus("offline");
-            setBackendError("API unavailable — using local demo data.");
-          }
+        if (!token) {
+          if (active) setBackendStatus("offline");
           return;
         }
         const sessionUser = await api.get("/auth/me");
@@ -55,13 +47,11 @@ export function AppProvider({ children }) {
           api.get("/students"), api.get("/subjects"), api.get("/attendance"), api.get("/marks"),
         ]);
       if (!active) return;
-      if (studentRows.length) setStudents(studentRows.map((student) => ({ ...normalizeStudent(student), attendance: attendanceForStudent(attendanceRows, student.studentId || student.id) })));
-      if (subjectRows.length) setSubjects(subjectRows);
-      if (attendanceRows.length) setAttendance(Object.fromEntries(attendanceRows.map((row) => [row.date, { [row.subjectCode]: toObject(row.records) }])));
-      if (markRows.length) {
-        setMarks(legacyMarksFromRows(markRows));
-        setAssessmentMarks(assessmentFromRows(markRows, initialAssessmentMarks));
-      }
+      setStudents(studentRows.map((student) => ({ ...normalizeStudent(student), attendance: attendanceForStudent(attendanceRows, student.studentId || student.id) })));
+      setSubjects(subjectRows);
+      setAttendance(Object.fromEntries(attendanceRows.map((row) => [row.date, { [row.subjectCode]: toObject(row.records) }])));
+      setMarks(legacyMarksFromRows(markRows));
+      setAssessmentMarks(assessmentFromRows(markRows, initialAssessmentMarks));
       setBackendStatus("connected");
       } catch (error) {
         if (active) {
@@ -78,17 +68,7 @@ export function AppProvider({ children }) {
     return () => { active = false; };
   }, []);
   const login = useCallback(async (email, password) => {
-    let session;
-    try {
-      session = await api.login(email, password);
-    } catch (error) {
-      if (!apiUnavailable(error)) throw error;
-      localStorage.setItem("sms_token", DEMO_TOKEN);
-      setUser(DEMO_USER);
-      setBackendStatus("offline");
-      setBackendError("API unavailable — using local demo data.");
-      return DEMO_USER;
-    }
+    const session = await api.login(email, password);
     localStorage.setItem("sms_token", session.token);
     setUser(session.user);
     setBackendError("");
@@ -96,13 +76,11 @@ export function AppProvider({ children }) {
     const [studentRows, subjectRows, attendanceRows, markRows] = await Promise.all([
       api.get("/students"), api.get("/subjects"), api.get("/attendance"), api.get("/marks"),
     ]);
-    if (studentRows.length) setStudents(studentRows.map((student) => ({ ...normalizeStudent(student), attendance: attendanceForStudent(attendanceRows, student.studentId || student.id) })));
-    if (subjectRows.length) setSubjects(subjectRows);
-    if (attendanceRows.length) setAttendance(Object.fromEntries(attendanceRows.map((row) => [row.date, { [row.subjectCode]: toObject(row.records) }])));
-    if (markRows.length) {
-      setMarks(legacyMarksFromRows(markRows));
-      setAssessmentMarks(assessmentFromRows(markRows, initialAssessmentMarks));
-    }
+    setStudents(studentRows.map((student) => ({ ...normalizeStudent(student), attendance: attendanceForStudent(attendanceRows, student.studentId || student.id) })));
+    setSubjects(subjectRows);
+    setAttendance(Object.fromEntries(attendanceRows.map((row) => [row.date, { [row.subjectCode]: toObject(row.records) }])));
+    setMarks(legacyMarksFromRows(markRows));
+    setAssessmentMarks(assessmentFromRows(markRows, initialAssessmentMarks));
     return session.user;
   }, []);
   const logout = useCallback(() => {
@@ -121,12 +99,19 @@ export function AppProvider({ children }) {
     api.post("/attendance", { date, subjectCode: subject, records }).catch((error) => { setBackendStatus("offline"); setBackendError(error.message); });
   }, []);
   const saveStudent = useCallback((student, editing = false) => {
-    const body = { ...student, studentId: student.id }; delete body.id;
-    return (editing ? api.put(`/students/${student._id}`, body) : api.post("/students", body)).catch((error) => { setBackendStatus("offline"); setBackendError(error.message); return null; });
+    const body = { ...student, studentId: student.id };
+    delete body.id;
+    delete body._id;
+    delete body.attendance;
+    return (editing ? api.put(`/students/${student._id}`, body) : api.post("/students", body)).catch((error) => {
+      setBackendStatus("offline");
+      setBackendError(error.message);
+      throw error;
+    });
   }, []);
   const saveSubject = useCallback((subject, editing = false) => (editing ? api.put(`/subjects/${subject._id}`, subject) : api.post("/subjects", subject)).catch((error) => { setBackendStatus("offline"); setBackendError(error.message); return null; }), []);
   const saveMarks = useCallback((rows) => Promise.all(rows.map((row) => api.post("/marks", row))).catch((error) => { setBackendStatus("offline"); setBackendError(error.message); return null; }), []);
-  const deleteStudent = useCallback((student) => api.del(`/students/${student._id}`).catch((error) => { setBackendStatus("offline"); setBackendError(error.message); }), []);
+  const deleteStudent = useCallback((student) => api.del(`/students/${student._id}`).then(() => true).catch((error) => { setBackendStatus("offline"); setBackendError(error.message); throw error; }), []);
   const deleteSubject = useCallback((subject) => api.del(`/subjects/${subject._id}`).catch((error) => { setBackendStatus("offline"); setBackendError(error.message); }), []);
   const value = useMemo(() => ({
     students, setStudents, subjects, setSubjects, marks, setMarks, assessmentMarks, setAssessmentMarks, attendance, setAttendance, saveAttendance, saveStudent, saveSubject, saveMarks, deleteStudent, deleteSubject, backendStatus, backendError, user, authLoading, login, logout,
