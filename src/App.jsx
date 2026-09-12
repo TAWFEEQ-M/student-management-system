@@ -11,6 +11,7 @@ import Subjects from "./pages/Subjects";
 import Reports from "./pages/Reports";
 import Login from "./pages/Login";
 import { AppProvider, useApp } from "./context/AppContext";
+const authDisabled = import.meta.env.VITE_AUTH_DISABLED === "true";
 function BackendNotice() {
   const { backendStatus, backendError } = useApp();
   return backendStatus === "offline" ? <div className="form-error" role="status">Backend unavailable — showing local demo data. {backendError || "Changes remain available in this session."}</div> : null;
@@ -19,7 +20,7 @@ function BackendNotice() {
 function ProtectedApp() {
   const { user, authLoading, logout } = useApp();
   if (authLoading) return <div className="loading-state">Connecting to the administration system...</div>;
-  if (!user) return <Navigate to="/login" replace />;
+  if (!user && !authDisabled) return <Navigate to="/login" replace />;
   return <div className="app">
     <Sidebar />
     <div className="main-area">
