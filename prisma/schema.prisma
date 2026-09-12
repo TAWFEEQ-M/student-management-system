@@ -1,0 +1,72 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String   @id @default(cuid())
+  name      String?
+  email     String   @unique
+  password  String
+  role      String   @default("admin")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Student {
+  id           String   @id @default(cuid())
+  studentId    String   @unique
+  name         String
+  fullName     String?
+  status       String   @default("active")
+  email        String   @unique
+  phone        String?
+  dateOfBirth  String?
+  gender       String?
+  department   String?
+  year         String?
+  section      String?
+  address      String?
+  admissionYear String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+model Subject {
+  id         String   @id @default(cuid())
+  code       String   @unique
+  name       String
+  faculty    String?
+  credits    Int?
+  semester   String?
+  department String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+}
+
+model Attendance {
+  id         String   @id @default(cuid())
+  date       String
+  subjectCode String
+  records    Json
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@unique([date, subjectCode])
+}
+
+model Mark {
+  id         String   @id @default(cuid())
+  studentId  String
+  subjectCode String
+  exam       String
+  scores     Json
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@unique([studentId, subjectCode, exam])
+}

@@ -14,7 +14,6 @@ export default async function handler(req, res) {
     console.error("API error:", error);
     return res.status(500).json({
       message: "Server error",
-      error: error.message,
     });
   }
 }

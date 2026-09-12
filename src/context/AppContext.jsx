@@ -3,7 +3,6 @@ import { initialAssessmentMarks, initialAttendance, initialMarks, initialStudent
 import { api, normalizeStudent } from "../services/api";
 
 const AppContext = createContext(null);
-const authDisabled = import.meta.env.VITE_AUTH_DISABLED === "true";
 const toObject = (value) => value instanceof Map ? Object.fromEntries(value) : (Array.isArray(value) ? Object.fromEntries(value) : (value || {}));
 const assessmentFromRows = (rows, fallback) => rows.reduce((result, row) => {
   const student = result[row.studentId] || {};
@@ -38,13 +37,9 @@ export function AppProvider({ children }) {
     const load = async () => {
       try {
         const token = localStorage.getItem("sms_token");
-        if (!token && !authDisabled) return;
-        if (authDisabled) {
-          if (active) setUser({ name: "Preview Admin", role: "admin" });
-        } else {
-          const sessionUser = await api.get("/auth/me");
-          if (active) setUser(sessionUser);
-        }
+        if (!token) return;
+        const sessionUser = await api.get("/auth/me");
+        if (active) setUser(sessionUser);
         const [studentRows, subjectRows, attendanceRows, markRows] = await Promise.all([
           api.get("/students"), api.get("/subjects"), api.get("/attendance"), api.get("/marks"),
         ]);
