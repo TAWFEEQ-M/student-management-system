@@ -54,6 +54,7 @@ export async function listAttendance(req, res) {
   const where = {};
   if (req.query.date) where.date = req.query.date;
   if (req.query.subjectCode) where.subjectCode = req.query.subjectCode;
+  if (req.query.hour) where.hour = Number(req.query.hour);
   res.json(exposeMany(await prisma.attendance.findMany({ where, orderBy: { date: "asc" } })));
 }
 export async function attendanceByStudent(req, res) {
@@ -71,12 +72,13 @@ export async function attendanceSummary(req, res) {
   res.json(summary(rows.flatMap((item) => values(item.records))));
 }
 export async function saveAttendance(req, res) {
-  const { date, subjectCode, records } = req.body;
+  const { date, subjectCode, hour = 1, records } = req.body;
   if (!date || !subjectCode || !records) return res.status(400).json({ message: "date, subjectCode and records are required" });
+  if (!Number.isInteger(Number(hour)) || Number(hour) < 1 || Number(hour) > 12) return res.status(400).json({ message: "hour must be an integer from 1 to 12" });
   const item = await prisma.attendance.upsert({
-    where: { date_subjectCode: { date, subjectCode } },
+    where: { date_subjectCode_hour: { date, subjectCode, hour: Number(hour) } },
     update: { records },
-    create: { date, subjectCode, records },
+    create: { date, subjectCode, hour: Number(hour), records },
   });
   res.json(expose(item));
 }

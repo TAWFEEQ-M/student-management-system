@@ -9,6 +9,7 @@ import Attendance from "./pages/Attendance";
 import Marks from "./pages/Marks";
 import Subjects from "./pages/Subjects";
 import Reports from "./pages/Reports";
+import LowAttendance from "./pages/LowAttendance";
 import Login from "./pages/Login";
 import { AppProvider, useApp } from "./context/AppContext";
 function BackendNotice() {
@@ -33,6 +34,7 @@ function ProtectedApp() {
           <Route path="/marks" element={<Marks />} />
           <Route path="/subjects" element={<Subjects />} />
           <Route path="/reports" element={<Reports />} />
+          <Route path="/low-attendance" element={<LowAttendance />} />
           <Route path="/login" element={<Navigate to="/" replace />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>

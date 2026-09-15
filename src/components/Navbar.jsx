@@ -1,5 +1,6 @@
 import { Bell, Search } from "lucide-react";
 import { useState } from "react";
+import Assistant from "./Assistant";
 
 function Navbar() {
   const [query, setQuery] = useState("");
@@ -17,6 +18,8 @@ function Navbar() {
       </div>
 
       <div className="navbar-right">
+
+        <Assistant />
 
         <button className="notification" onClick={() => window.alert("No new notifications")}>
           <Bell size={21} />

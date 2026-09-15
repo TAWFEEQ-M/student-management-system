@@ -16,5 +16,17 @@ export const api = {
   put: (path, body) => request(path, { method: "PUT", body: JSON.stringify(body) }),
   del: (path) => request(path, { method: "DELETE" }),
   login: (email, password) => request("/auth/login", { method: "POST", body: JSON.stringify({ email, password }) }),
+  searchStudents: (query) => request(`/students/search?q=${encodeURIComponent(query)}`),
+  lowAttendance: (threshold = 75, filters = {}) => request(`/attendance/low?${new URLSearchParams({ threshold, ...filters })}`),
+  attendanceByDate: (date, filters = {}) => request(`/attendance/date?${new URLSearchParams({ date, ...filters })}`),
+  copyAttendance: (body) => request("/attendance/copy", { method: "POST", body: JSON.stringify(body) }),
+  downloadAttendance: async (path) => {
+    const token = localStorage.getItem("sms_token");
+    const response = await fetch(`${API_URL}${path}`, { headers: token ? { Authorization: `Bearer ${token}` } : {} });
+    if (!response.ok) throw new Error((await response.json().catch(() => ({}))).message || "Unable to download report");
+    const blob = await response.blob();
+    const filename = response.headers.get("Content-Disposition")?.match(/filename=([^;]+)/i)?.[1]?.replace(/"/g, "") || "attendance-report.xlsx";
+    const url = URL.createObjectURL(blob); const link = document.createElement("a"); link.href = url; link.download = filename; link.click(); URL.revokeObjectURL(url);
+  },
 };
 export const normalizeStudent = (student) => ({ ...student, id: student.studentId || student.id });

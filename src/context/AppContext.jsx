@@ -21,6 +21,8 @@ const attendanceForStudent = (rows, studentId) => {
   const values = rows.map((row) => toObject(row.records)[studentId]).filter((value) => typeof value === "boolean");
   return values.length ? Math.round(values.filter(Boolean).length / values.length * 100) : 0;
 };
+const attendanceKey = (subject, hour = 1) => hour === 1 ? subject : `${subject}#${hour}`;
+const attendanceFromRows = (rows) => rows.reduce((result, row) => ({ ...result, [row.date]: { ...(result[row.date] || {}), [attendanceKey(row.subjectCode, row.hour || 1)]: toObject(row.records) } }), {});
 
 export function AppProvider({ children }) {
   const [students, setStudents] = useState(initialStudents);
@@ -49,7 +51,7 @@ export function AppProvider({ children }) {
       if (!active) return;
       setStudents(studentRows.map((student) => ({ ...normalizeStudent(student), attendance: attendanceForStudent(attendanceRows, student.studentId || student.id) })));
       setSubjects(subjectRows);
-      setAttendance(Object.fromEntries(attendanceRows.map((row) => [row.date, { [row.subjectCode]: toObject(row.records) }])));
+      setAttendance(attendanceFromRows(attendanceRows));
       setMarks(legacyMarksFromRows(markRows));
       setAssessmentMarks(assessmentFromRows(markRows, initialAssessmentMarks));
       setBackendStatus("connected");
@@ -78,7 +80,7 @@ export function AppProvider({ children }) {
     ]);
     setStudents(studentRows.map((student) => ({ ...normalizeStudent(student), attendance: attendanceForStudent(attendanceRows, student.studentId || student.id) })));
     setSubjects(subjectRows);
-    setAttendance(Object.fromEntries(attendanceRows.map((row) => [row.date, { [row.subjectCode]: toObject(row.records) }])));
+    setAttendance(attendanceFromRows(attendanceRows));
     setMarks(legacyMarksFromRows(markRows));
     setAssessmentMarks(assessmentFromRows(markRows, initialAssessmentMarks));
     return session.user;
@@ -87,17 +89,18 @@ export function AppProvider({ children }) {
     localStorage.removeItem("sms_token");
     setUser(null);
   }, []);
-  const saveAttendance = useCallback((date, subject, records) => {
+  const saveAttendance = useCallback((date, subject, records, hour = 1) => {
     setAttendance((current) => {
-      const next = { ...current, [date]: { ...(current[date] || {}), [subject]: records } };
+      const next = { ...current, [date]: { ...(current[date] || {}), [attendanceKey(subject, hour)]: records } };
       setStudents((currentStudents) => currentStudents.map((student) => {
         const values = Object.values(next).flatMap((day) => Object.values(day).map((record) => record[student.id]).filter((value) => typeof value === "boolean"));
         return values.length ? { ...student, attendance: Math.round(values.filter(Boolean).length / values.length * 100) } : student;
       }));
       return next;
     });
-    api.post("/attendance", { date, subjectCode: subject, records }).catch((error) => { setBackendStatus("offline"); setBackendError(error.message); });
+    return api.post("/attendance", { date, subjectCode: subject, hour, records }).catch((error) => { setBackendStatus("offline"); setBackendError(error.message); throw error; });
   }, []);
+  const copyAttendance = useCallback((body) => api.copyAttendance(body), []);
   const saveStudent = useCallback((student, editing = false) => {
     const body = { ...student, studentId: student.id };
     delete body.id;
@@ -109,13 +112,22 @@ export function AppProvider({ children }) {
       throw error;
     });
   }, []);
-  const saveSubject = useCallback((subject, editing = false) => (editing ? api.put(`/subjects/${subject._id}`, subject) : api.post("/subjects", subject)).catch((error) => { setBackendStatus("offline"); setBackendError(error.message); return null; }), []);
+  const saveSubject = useCallback((subject, editing = false) => {
+    const body = { ...subject };
+    delete body.id;
+    delete body._id;
+    return (editing ? api.put(`/subjects/${subject._id}`, body) : api.post("/subjects", body)).catch((error) => {
+      setBackendStatus("offline");
+      setBackendError(error.message);
+      throw error;
+    });
+  }, []);
   const saveMarks = useCallback((rows) => Promise.all(rows.map((row) => api.post("/marks", row))).catch((error) => { setBackendStatus("offline"); setBackendError(error.message); return null; }), []);
   const deleteStudent = useCallback((student) => api.del(`/students/${student._id}`).then(() => true).catch((error) => { setBackendStatus("offline"); setBackendError(error.message); throw error; }), []);
   const deleteSubject = useCallback((subject) => api.del(`/subjects/${subject._id}`).catch((error) => { setBackendStatus("offline"); setBackendError(error.message); }), []);
   const value = useMemo(() => ({
-    students, setStudents, subjects, setSubjects, marks, setMarks, assessmentMarks, setAssessmentMarks, attendance, setAttendance, saveAttendance, saveStudent, saveSubject, saveMarks, deleteStudent, deleteSubject, backendStatus, backendError, user, authLoading, login, logout,
-  }), [students, subjects, marks, assessmentMarks, attendance, saveAttendance, saveStudent, saveSubject, saveMarks, deleteStudent, deleteSubject, backendStatus, backendError, user, authLoading, login, logout]);
+    students, setStudents, subjects, setSubjects, marks, setMarks, assessmentMarks, setAssessmentMarks, attendance, setAttendance, saveAttendance, copyAttendance, saveStudent, saveSubject, saveMarks, deleteStudent, deleteSubject, backendStatus, backendError, user, authLoading, login, logout,
+  }), [students, subjects, marks, assessmentMarks, attendance, saveAttendance, copyAttendance, saveStudent, saveSubject, saveMarks, deleteStudent, deleteSubject, backendStatus, backendError, user, authLoading, login, logout]);
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
 }
 

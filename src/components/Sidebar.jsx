@@ -5,6 +5,7 @@ import {
   GraduationCap,
   BookOpen,
   BarChart3,
+  AlertTriangle,
   Settings,
   LogOut
 } from "lucide-react";
@@ -71,6 +72,11 @@ function Sidebar() {
         >
           <BarChart3 size={20} />
           <span>Reports</span>
+        </NavLink>
+
+        <NavLink to="/low-attendance" className="nav-item">
+          <AlertTriangle size={20} />
+          <span>Low Attendance</span>
         </NavLink>
 
       </nav>
